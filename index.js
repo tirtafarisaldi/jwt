@@ -4,11 +4,13 @@ import cookieParser from "cookie-parser";
 import cors from "cors";
 import db from "./config/Database.js";
 import router from "./routes/index.js";
+import Inventory from "./models/InventoryModel.js";
 dotenv.config();
 const app = express();
 
 try {
     await db.authenticate();
+    await Inventory.sync();
     console.log('Database Connected...');
 } catch (error) {
     console.error(error);
