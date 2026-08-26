@@ -1,5 +1,5 @@
 import express from "express";
-import { getUsers, Register, Login, Logout } from "../controllers/Users.js";
+import { getUsers, Register, Login, Logout, CheckUser } from "../controllers/Users.js";
 import { verifyToken } from "../middleware/VerifyToken.js";
 import { verifyApiKey } from "../middleware/VerifyApiKey.js";
 import { refreshToken } from "../controllers/RefreshToken.js";
@@ -17,6 +17,7 @@ router.get('/users', verifyApiKey, verifyToken, getUsers);
 router.post('/register', verifyApiKey, Register);
 router.post('/login', verifyApiKey, Login);
 router.get('/token', verifyApiKey, refreshToken);
+router.get('/checkuser', verifyApiKey, verifyToken, CheckUser);
 router.delete('/logout', verifyApiKey, verifyToken, Logout);
 
 router.get('/inventories', verifyApiKey, verifyToken, getInventories);
