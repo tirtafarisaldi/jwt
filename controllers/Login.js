@@ -11,11 +11,16 @@ export const login = async (req, res) => {
         if (!match) return res.status(400).json({ msg: "Wrong Password" });
 
         const payload = { userId: user.id, name: user.name, email: user.email };
-        const accessToken = jwt.sign(payload, process.env.ACCESS_TOKEN_SECRET, { expiresIn: "15m" });
+        const accessToken = jwt.sign(payload, process.env.ACCESS_TOKEN_SECRET, { expiresIn: "20s" });
         const refreshToken = jwt.sign(payload, process.env.REFRESH_TOKEN_SECRET, { expiresIn: "1d" });
 
         await user.update({ refresh_token: refreshToken });
-        res.cookie("refreshToken", refreshToken, { httpOnly: true, maxAge: 24 * 60 * 60 * 1000 });
+        res.cookie("refreshToken", refreshToken, { 
+            httpOnly: true, 
+            secure: process.env.SECURE_COOKIE,
+            sameSite: "none", 
+            maxAge: 24 * 60 * 60 * 1000 
+        });
         return res.json({ accessToken });
     } catch (error) {
         return res.status(500).json({ msg: "Login gagal" });

@@ -2,9 +2,9 @@ import bcrypt from "bcrypt";
 import Users from "../models/UserModel.js";
 
 export const register = async (req, res) => {
-    const { name, email, password, confPassword } = req.body;
+    const { name, email, password, confirm_password } = req.body;
 
-    if (password !== confPassword) {
+    if (password !== confirm_password) {
         return res.status(400).json({ msg: "Password dan Confirm Password tidak cocok" });
     }
 

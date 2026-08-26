@@ -9,11 +9,6 @@ const Inventory = db.define("inventories", {
         allowNull: false,
         validate: { notEmpty: true }
     },
-    description: {
-        type: DataTypes.STRING,
-        allowNull: false,
-        validate: { notEmpty: true }
-    },
     category: {
         type: DataTypes.STRING,
         allowNull: false,

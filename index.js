@@ -5,7 +5,8 @@ import cors from "cors";
 import db from "./config/Database.js";
 import router from "./routes/index.js";
 import Inventory from "./models/InventoryModel.js";
-dotenv.config();
+const envFile = process.env.NODE_ENV === "production" ? ".env.production" : ".env.development";
+dotenv.config({ path: envFile });
 const app = express();
 
 try {

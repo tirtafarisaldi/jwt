@@ -3,7 +3,7 @@ import Inventory from "../models/InventoryModel.js";
 
 const { Op } = Sequelize;
 
-const inventoryFields = ["name", "description", "category", "stock", "location", "status", "information", "image"];
+const inventoryFields = ["name", "category", "stock", "location", "status", "information", "image"];
 
 const pickInventoryFields = (body) => Object.fromEntries(
     inventoryFields
