@@ -37,7 +37,8 @@ export const getInventories = async (req, res) => {
             where,
             limit,
             offset: (page - 1) * limit,
-            order: [[sortBy, normalizedSortOrder]]
+            order: [[sortBy, normalizedSortOrder]],
+            subQuery: false
         });
 
         return res.json({

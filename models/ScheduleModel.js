@@ -44,7 +44,12 @@ const Schedule = db.define("schedules", {
         allowNull: true
     }
 }, {
-    freezeTableName: true
+    freezeTableName: true,
+    indexes: [
+        { fields: ['date'] },
+        { fields: ['location'] },
+        { fields: ['date', 'location'] }
+    ]
 });
 
 export default Schedule;

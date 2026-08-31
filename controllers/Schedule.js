@@ -108,7 +108,8 @@ export const getSchedules = async (req, res) => {
             where,
             limit,
             offset: (page - 1) * limit,
-            order: [['date', 'ASC'], ['start_time', 'ASC']]
+            order: [['date', 'ASC'], ['start_time', 'ASC']],
+            subQuery: false
         });
 
         return res.json({

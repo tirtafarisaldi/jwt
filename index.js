@@ -12,8 +12,8 @@ const app = express();
 
 try {
     await db.authenticate();
-    await Inventory.sync();
-    await Schedule.sync();
+    await Inventory.sync({ alter: true });
+    await Schedule.sync({ alter: true });
     console.log('Database Connected...');
 } catch (error) {
     console.error(error);

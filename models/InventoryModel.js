@@ -44,7 +44,16 @@ const Inventory = db.define("inventories", {
         validate: { notEmpty: true }
     }
 }, {
-    freezeTableName: true
+    freezeTableName: true,
+    indexes: [
+        { fields: ['name'] },
+        { fields: ['category'] },
+        { fields: ['location'] },
+        { fields: ['status'] },
+        { fields: ['category', 'location', 'status'] },
+        { fields: ['createdAt'] },
+        { fields: ['updatedAt'] }
+    ]
 });
 
 export default Inventory;
