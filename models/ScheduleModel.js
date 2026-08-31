@@ -3,48 +3,48 @@ import db from "../config/Database.js";
 
 const { DataTypes } = Sequelize;
 
-const Inventory = db.define("inventories", {
+const Schedule = db.define("schedules", {
     id: {
         type: DataTypes.UUID,
         defaultValue: DataTypes.UUIDV4,
         primaryKey: true
     },
-    name: {
+    title: {
         type: DataTypes.STRING,
         allowNull: false,
         validate: { notEmpty: true }
     },
-    category: {
+    date: {
+        type: DataTypes.DATEONLY,
+        allowNull: false,
+        validate: { notEmpty: true }
+    },
+    start_time: {
         type: DataTypes.STRING,
         allowNull: false,
         validate: { notEmpty: true }
     },
-    stock: {
-        type: DataTypes.INTEGER.UNSIGNED,
+    end_time: {
+        type: DataTypes.STRING,
         allowNull: false,
-        validate: { min: 0 }
+        validate: { notEmpty: true }
     },
     location: {
         type: DataTypes.STRING,
         allowNull: false,
         validate: { notEmpty: true }
     },
-    status: {
+    peminjam: {
         type: DataTypes.STRING,
         allowNull: false,
         validate: { notEmpty: true }
     },
-    information: {
+    note: {
         type: DataTypes.TEXT,
         allowNull: true
-    },
-    image: {
-        type: DataTypes.STRING,
-        allowNull: false,
-        validate: { notEmpty: true }
     }
 }, {
     freezeTableName: true
 });
 
-export default Inventory;
+export default Schedule;

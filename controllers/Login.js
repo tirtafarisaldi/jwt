@@ -21,7 +21,7 @@ export const login = async (req, res) => {
             sameSite: "none", 
             maxAge: 24 * 60 * 60 * 1000 
         });
-        return res.json({ accessToken });
+        return res.json({ accessToken, user: { id: user.id, name: user.name, email: user.email, role: user.role } });
     } catch (error) {
         return res.status(500).json({ msg: "Login gagal" });
     }
