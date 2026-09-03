@@ -46,7 +46,7 @@ export const getInventories = async (req, res) => {
             page: {
                 total: Math.ceil(count / limit),
                 current: page,
-                totalData: count
+                total_data: count
             },
         });
     } catch (error) {

@@ -17,6 +17,16 @@ import {
     updateSchedule,
     deleteSchedule
 } from "../controllers/Schedule.js";
+import {
+    getBookings,
+    getBookingById,
+    createBooking,
+    updateBooking,
+    updateBookingStatus,
+    getBookingLetter,
+    deleteBooking,
+    uploadLetter
+} from "../controllers/Booking.js";
 
 const router = express.Router();
 
@@ -38,5 +48,13 @@ router.get('/schedule/:id', verifyApiKey, verifyToken, getScheduleById);
 router.post('/schedule', verifyApiKey, verifyToken, createSchedule);
 router.put('/schedule/:id', verifyApiKey, verifyToken, updateSchedule);
 router.delete('/schedule/:id', verifyApiKey, verifyToken, deleteSchedule);
+
+router.get('/bookings', verifyApiKey, verifyToken, getBookings);
+router.get('/booking/:id', verifyApiKey, verifyToken, getBookingById);
+router.get('/booking/:id/letter', verifyApiKey, verifyToken, getBookingLetter);
+router.post('/booking', verifyApiKey, verifyToken, uploadLetter.single('letter'), createBooking);
+router.put('/booking/:id', verifyApiKey, verifyToken, uploadLetter.single('letter'), updateBooking);
+router.patch('/booking/:id/status', verifyApiKey, verifyToken, updateBookingStatus);
+router.delete('/booking/:id', verifyApiKey, verifyToken, deleteBooking);
 
 export default router;
