@@ -145,7 +145,11 @@ export const createSchedule = async (req, res) => {
         const conflict = await checkConflict(payload);
         if (conflict) return res.status(409).json({ msg: "Ruangan sudah dipesan pada waktu tersebut" });
 
-        const schedule = await Schedule.create(payload);
+        const schedule = await Schedule.create({
+            ...payload,
+            created_by: req.userId,
+            updated_by: req.userId
+        });
         return res.status(201).json({ data: schedule });
     } catch (error) {
         return res.status(400).json({ msg: "Gagal membuat schedule", error: error.errors?.[0]?.message });
@@ -166,7 +170,10 @@ export const updateSchedule = async (req, res) => {
         const conflict = await checkConflict(merged);
         if (conflict) return res.status(409).json({ msg: "Ruangan sudah dipesan pada waktu tersebut" });
 
-        await schedule.update(payload);
+        await schedule.update({
+            ...payload,
+            updated_by: req.userId
+        });
         return res.json({ data: schedule });
     } catch (error) {
         return res.status(400).json({ msg: "Gagal memperbarui schedule", error: error.errors?.[0]?.message });

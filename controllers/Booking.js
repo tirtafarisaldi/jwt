@@ -90,7 +90,7 @@ const deleteStoredLetter = async (value) => {
     if (fs.existsSync(localPath)) fs.unlinkSync(localPath);
 };
 
-const VALID_STATUSES = ['process', 'approved', 'rejected', 'completed'];
+const VALID_STATUSES = ['pending', 'reviewing', 'approved', 'rejected', 'completed'];
 
 const bookingFields = [
     "borrower",
@@ -301,7 +301,7 @@ const buildRepeatDates = (booking) => {
     return result;
 };
 
-const createScheduleFromBooking = async (booking) => {
+const createScheduleFromBooking = async (booking, userId) => {
     if (booking.type !== 'room') return;
 
     const dates = buildRepeatDates(booking);
@@ -328,7 +328,9 @@ const createScheduleFromBooking = async (booking) => {
             end_time: booking.end_time,
             location: STUDIO_LOCATION,
             peminjam: booking.borrower,
-            note: booking.note || null
+            note: booking.note || null,
+            created_by: userId,
+            updated_by: userId
         });
     }
 };
@@ -426,13 +428,18 @@ export const createBooking = async (req, res) => {
             return res.status(400).json({ msg: errors[0] });
         }
 
-        // Alur status: permintaan member otomatis dalam status "process".
-        payload.status = 'process';
+        // Alur status: permintaan baru dibuat dalam status "pending"
+        // (menunggu upload surat). Setelah surat diunggah, status menjadi "reviewing".
+        payload.status = 'pending';
         payload.reason_rejected = null;
+        payload.created_by = req.userId;
+        payload.updated_by = req.userId;
 
         // Upload surat (PDF) ke Google Drive, simpan file ID-nya.
+        // Apabila surat langsung diunggah bersamaan pembuatan, langsung lanjut ke "reviewing".
         if (req.file) {
             payload.letter_file = await storeLetterOnDrive(req.file);
+            payload.status = 'reviewing';
         }
 
         const booking = await Booking.create(payload);
@@ -487,9 +494,17 @@ export const updateBooking = async (req, res) => {
             uploadedLetterId = await storeLetterOnDrive(req.file);
             payload.letter_file = uploadedLetterId;
             await deleteStoredLetter(oldLetter);
+            // Upload surat pada booking yang masih "pending" (tanpa surat)
+            // akan mengubah status menjadi "reviewing" (menunggu persetujuan admin).
+            if (booking.status === 'pending') {
+                payload.status = 'reviewing';
+            }
         }
 
-        await booking.update(payload);
+        await booking.update({
+            ...payload,
+            updated_by: req.userId
+        });
 
         if (items !== null) {
             await BookingItem.destroy({ where: { booking_id: booking.id } });
@@ -506,7 +521,7 @@ export const updateBooking = async (req, res) => {
 
         if (payload.status === 'approved' && booking.type === 'room') {
             try {
-                await createScheduleFromBooking(booking);
+                await createScheduleFromBooking(booking, req.userId);
             } catch (error) {
                 if (error.statusCode === 409) {
                     return res.status(409).json({ msg: error.message });
@@ -540,9 +555,9 @@ export const updateBookingStatus = async (req, res) => {
             return res.status(400).json({ msg: 'Alasan penolakan wajib diisi' });
         }
 
-        // Approve HANYA boleh dari status process.
-        if (status === 'approved' && booking.status !== 'process') {
-            return res.status(400).json({ msg: 'Hanya booking dengan status process yang bisa di-approve' });
+        // Approve HANYA boleh dari status reviewing (surat sudah diunggah).
+        if (status === 'approved' && booking.status !== 'reviewing') {
+            return res.status(400).json({ msg: 'Hanya booking dengan status reviewing yang bisa di-approve' });
         }
         // Complete HANYA boleh dari status approved.
         if (status === 'completed' && booking.status !== 'approved') {
@@ -552,11 +567,14 @@ export const updateBookingStatus = async (req, res) => {
         const update = { status };
         if (status === 'rejected') {
             update.reason_rejected = String(reason_rejected).trim();
-        } else if (status === 'approved' || status === 'process' || status === 'completed') {
+        } else if (status === 'approved' || status === 'pending' || status === 'reviewing' || status === 'completed') {
             update.reason_rejected = null;
         }
 
-        await booking.update(update);
+        await booking.update({
+            ...update,
+            updated_by: req.userId
+        });
 
         // Dampak ke status inventaris:
         // - approve equipment -> inventaris menjadi "Dipinjam"
@@ -571,7 +589,7 @@ export const updateBookingStatus = async (req, res) => {
 
         if (status === 'approved' && booking.type === 'room') {
             try {
-                await createScheduleFromBooking(booking);
+                await createScheduleFromBooking(booking, req.userId);
             } catch (error) {
                 if (error.statusCode === 409) {
                     return res.status(409).json({ msg: error.message });

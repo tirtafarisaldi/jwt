@@ -66,7 +66,11 @@ export const getInventoryById = async (req, res) => {
 
 export const createInventory = async (req, res) => {
     try {
-        const inventory = await Inventory.create(pickInventoryFields(req.body));
+        const inventory = await Inventory.create({
+            ...pickInventoryFields(req.body),
+            created_by: req.userId,
+            updated_by: req.userId
+        });
         return res.status(201).json({ msg: "Inventory berhasil dibuat", data: inventory });
     } catch (error) {
         return res.status(400).json({ msg: "Gagal membuat inventory", error: error.errors?.[0]?.message });
@@ -78,7 +82,10 @@ export const updateInventory = async (req, res) => {
         const inventory = await Inventory.findByPk(req.params.id);
         if (!inventory) return res.status(404).json({ msg: "Inventory tidak ditemukan" });
 
-        await inventory.update(pickInventoryFields(req.body));
+        await inventory.update({
+            ...pickInventoryFields(req.body),
+            updated_by: req.userId
+        });
         return res.json({ msg: "Inventory berhasil diperbarui", data: inventory });
     } catch (error) {
         return res.status(400).json({ msg: "Gagal memperbarui inventory", error: error.errors?.[0]?.message });

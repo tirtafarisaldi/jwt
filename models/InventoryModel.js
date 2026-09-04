@@ -42,6 +42,14 @@ const Inventory = db.define("inventories", {
         type: DataTypes.STRING,
         allowNull: false,
         validate: { notEmpty: true }
+    },
+    created_by: {
+        type: DataTypes.STRING(36),
+        allowNull: true
+    },
+    updated_by: {
+        type: DataTypes.STRING(36),
+        allowNull: true
     }
 }, {
     freezeTableName: true,

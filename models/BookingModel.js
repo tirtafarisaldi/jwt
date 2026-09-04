@@ -63,12 +63,20 @@ const Booking = db.define("bookings", {
         allowNull: true
     },
     status: {
-        type: DataTypes.ENUM("process", "approved", "rejected", "completed"),
+        type: DataTypes.ENUM("pending", "reviewing", "approved", "rejected", "completed"),
         allowNull: false,
-        defaultValue: "process"
+        defaultValue: "pending"
     },
     note: {
         type: DataTypes.TEXT,
+        allowNull: true
+    },
+    created_by: {
+        type: DataTypes.STRING(36),
+        allowNull: true
+    },
+    updated_by: {
+        type: DataTypes.STRING(36),
         allowNull: true
     }
 }, {

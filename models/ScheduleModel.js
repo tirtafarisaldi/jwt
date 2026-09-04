@@ -42,6 +42,14 @@ const Schedule = db.define("schedules", {
     note: {
         type: DataTypes.TEXT,
         allowNull: true
+    },
+    created_by: {
+        type: DataTypes.STRING(36),
+        allowNull: true
+    },
+    updated_by: {
+        type: DataTypes.STRING(36),
+        allowNull: true
     }
 }, {
     freezeTableName: true,
