@@ -4,10 +4,12 @@
   "description": "",
   "main": "index.js",
   "type": "module",
-  "scripts": {
-    "dev": "cross-env NODE_ENV=development nodemon index.js",
-    "start": "cross-env NODE_ENV=production node index.js"
-  },
+    "scripts": {
+        "dev": "cross-env NODE_ENV=development nodemon index.js",
+        "start": "cross-env NODE_ENV=production node scripts/authGoogleDrive.js && cross-env NODE_ENV=production node index.js",
+        "migrate:letters": "node scripts/migrateLetters.js",
+        "drive:auth": "cross-env NODE_ENV=development node scripts/authGoogleDrive.js"
+    },
   "author": "",
   "license": "ISC",
   "dependencies": {
@@ -16,6 +18,7 @@
     "cors": "^2.8.5",
     "dotenv": "^10.0.0",
     "express": "^4.17.1",
+    "googleapis": "^125.0.0",
     "jsonwebtoken": "^8.5.1",
     "multer": "^2.3.0",
     "mysql2": "^2.3.2",

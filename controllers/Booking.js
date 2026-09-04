@@ -8,6 +8,12 @@ import BookingItem from "../models/BookingItemModel.js";
 import Inventory from "../models/InventoryModel.js";
 import Schedule from "../models/ScheduleModel.js";
 import Users from "../models/UserModel.js";
+import {
+    uploadFileToDrive,
+    getDriveFileStream,
+    deleteFileFromDrive,
+    DRIVE_FOLDER_ID
+} from "../config/GoogleDrive.js";
 
 const { Op } = Sequelize;
 
@@ -25,10 +31,14 @@ const storage = multer.diskStorage({
 });
 
 const fileFilter = (req, file, cb) => {
-    const allowed = ['.pdf', '.jpg', '.jpeg', '.png', '.doc', '.docx'];
+    const allowed = ['.pdf'];
     const ext = path.extname(file.originalname || "").toLowerCase();
     if (allowed.includes(ext)) return cb(null, true);
-    const error = new Error('Format surat tidak didukung (PDF/gambar/doc)');
+
+    const mime = file.mimetype || '';
+    if (mime === 'application/pdf') return cb(null, true);
+
+    const error = new Error('Format surat hanya boleh PDF');
     error.statusCode = 400;
     return cb(error);
 };
@@ -38,6 +48,47 @@ export const uploadLetter = multer({
     fileFilter,
     limits: { fileSize: 2 * 1024 * 1024 }
 });
+
+// True jika nilai letter_file tampak sebagai file ID Google Drive,
+// bukan nama file lokal lama (yang mengandung ekstensi/karakter path).
+const isDriveId = (value) =>
+    typeof value === 'string' &&
+    value.length > 0 &&
+    !path.extname(value) &&
+    !value.includes('/') &&
+    !value.includes('\\');
+
+const localLetterPath = (letterFile) =>
+    path.join(lettersDir, path.basename(letterFile));
+
+// Mengupload file multipart ke Drive, mengembalikan ID file.
+// Nama file di Drive = nama asli upload dengan prefix unik (anti-bentrok).
+async function storeLetterOnDrive(file) {
+    const ext = path.extname(file.originalname || "").toLowerCase() || ".pdf";
+    const baseName = path.basename(file.originalname || "surat", ext);
+    const uniqueName = `${Date.now()}-${baseName}${ext}`;
+    const result = await uploadFileToDrive({
+        filePath: file.path,
+        folderId: DRIVE_FOLDER_ID(),
+        name: uniqueName
+    });
+    return result.id;
+}
+
+// Menghapus surat. value adalah file ID Drive atau nama file lokal lama.
+const deleteStoredLetter = async (value) => {
+    if (!value) return;
+    if (isDriveId(value)) {
+        try {
+            await deleteFileFromDrive(value);
+        } catch (error) {
+            console.error('Gagal menghapus surat dari Drive:', error?.message);
+        }
+        return;
+    }
+    const localPath = localLetterPath(value);
+    if (fs.existsSync(localPath)) fs.unlinkSync(localPath);
+};
 
 const VALID_STATUSES = ['process', 'approved', 'rejected', 'completed'];
 
@@ -271,7 +322,7 @@ const createScheduleFromBooking = async (booking) => {
         }
 
         await Schedule.create({
-            title: `Booking Ruangan · ${booking.borrower}`,
+            title: booking.title || `${booking.borrower} — Booking Ruangan`,
             date,
             start_time: booking.start_time,
             end_time: booking.end_time,
@@ -369,17 +420,20 @@ export const createBooking = async (req, res) => {
     try {
         const payload = pickBookingFields(req.body);
         const items = parseItems(req.body.items);
-        if (req.file) payload.letter_file = req.file.filename;
 
         const errors = await validatePayload({ ...payload, type: payload.type ?? 'equipment' }, items);
         if (errors.length > 0) {
-            if (req.file) fs.unlinkSync(path.join(lettersDir, req.file.filename));
             return res.status(400).json({ msg: errors[0] });
         }
 
         // Alur status: permintaan member otomatis dalam status "process".
         payload.status = 'process';
         payload.reason_rejected = null;
+
+        // Upload surat (PDF) ke Google Drive, simpan file ID-nya.
+        if (req.file) {
+            payload.letter_file = await storeLetterOnDrive(req.file);
+        }
 
         const booking = await Booking.create(payload);
 
@@ -396,7 +450,7 @@ export const createBooking = async (req, res) => {
         const fresh = await Booking.findByPk(booking.id, { include: includeItems });
         return res.status(201).json({ data: fresh });
     } catch (error) {
-        if (req.file) fs.unlinkSync(path.join(lettersDir, req.file.filename));
+        if (req.file) fs.unlinkSync(req.file.path);
         return res.status(400).json({ msg: "Gagal membuat booking", error: error.errors?.[0]?.message });
     }
 };
@@ -411,14 +465,7 @@ export const updateBooking = async (req, res) => {
             ? parseItems(req.body.items)
             : null;
 
-        if (req.file) {
-            if (booking.letter_file) {
-                const oldPath = path.join(lettersDir, path.basename(booking.letter_file));
-                if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
-            }
-            payload.letter_file = req.file.filename;
-        }
-
+        // Validasi dulu (tanpa mengubah file) sebelum file lama dihapus/ditimpa.
         const merged = { ...booking.toJSON(), ...payload };
         const existingItems = await booking.getItems();
         const mergedItems =
@@ -430,8 +477,16 @@ export const updateBooking = async (req, res) => {
                   }));
         const errors = await validatePayload(merged, mergedItems);
         if (errors.length > 0) {
-            if (req.file) fs.unlinkSync(path.join(lettersDir, req.file.filename));
             return res.status(400).json({ msg: errors[0] });
+        }
+
+        // Setelah validasi lolos, proses penggantian surat.
+        let uploadedLetterId = null;
+        if (req.file) {
+            const oldLetter = booking.letter_file;
+            uploadedLetterId = await storeLetterOnDrive(req.file);
+            payload.letter_file = uploadedLetterId;
+            await deleteStoredLetter(oldLetter);
         }
 
         await booking.update(payload);
@@ -463,7 +518,9 @@ export const updateBooking = async (req, res) => {
         const fresh = await Booking.findByPk(booking.id, { include: includeItems });
         return res.json({ data: fresh });
     } catch (error) {
-        if (req.file) fs.unlinkSync(path.join(lettersDir, req.file.filename));
+        if (req.file) {
+            try { fs.unlinkSync(req.file.path); } catch { /* ignore */ }
+        }
         return res.status(400).json({ msg: "Gagal memperbarui booking", error: error.errors?.[0]?.message });
     }
 };
@@ -530,19 +587,37 @@ export const updateBookingStatus = async (req, res) => {
     }
 };
 
-// Mengalirkan file surat booking (untuk dicek admin).
+// Mengalirkan file surat booking (untuk dicek admin). Surat tersimpan di Google Drive.
 export const getBookingLetter = async (req, res) => {
     try {
         const booking = await Booking.findByPk(req.params.id);
         if (!booking || !booking.letter_file) {
             return res.status(404).json({ msg: "Surat tidak ditemukan" });
         }
-        const letterPath = path.join(lettersDir, path.basename(booking.letter_file));
+
+        if (isDriveId(booking.letter_file)) {
+            const stream = await getDriveFileStream(booking.letter_file);
+            res.setHeader('Content-Type', 'application/pdf');
+            res.setHeader(
+                'Content-Disposition',
+                `inline; filename="${booking.letter_file}.pdf"`
+            );
+            stream.on('error', () => {
+                if (!res.headersSent) res.status(404).json({ msg: "Surat tidak ditemukan" });
+            });
+            return stream.pipe(res);
+        }
+
+        // Kompatibilitas dengan file lokal lama.
+        const letterPath = localLetterPath(booking.letter_file);
         if (!fs.existsSync(letterPath)) {
             return res.status(404).json({ msg: "Surat tidak ditemukan" });
         }
         return res.sendFile(letterPath);
     } catch (error) {
+        if (error.statusCode === 500) {
+            return res.status(500).json({ msg: error.message });
+        }
         return res.status(400).json({ msg: "ID booking tidak valid" });
     }
 };
@@ -558,8 +633,7 @@ export const deleteBooking = async (req, res) => {
         }
 
         if (booking.letter_file) {
-            const letterPath = path.join(lettersDir, path.basename(booking.letter_file));
-            if (fs.existsSync(letterPath)) fs.unlinkSync(letterPath);
+            await deleteStoredLetter(booking.letter_file);
         }
 
         await booking.destroy();
