@@ -1,6 +1,8 @@
 import bcrypt from "bcrypt";
 import Users from "../models/UserModel.js";
 
+// REGISTER LOKAL DIGANTI OLEH SSO CAS (lihat controllers/CasAuth.js)
+/*
 export const register = async (req, res) => {
     const { name, email, password, confirm_password } = req.body;
 
@@ -16,3 +18,4 @@ export const register = async (req, res) => {
         return res.status(400).json({ msg: "Registrasi gagal", error: error.errors?.[0]?.message });
     }
 };
+*/

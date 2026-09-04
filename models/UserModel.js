@@ -24,8 +24,8 @@ const Users = db.define('users',{
     role:{
         type: DataTypes.STRING,
         allowNull: false,
-        defaultValue: "member",
-        validate: { isIn: [["member", "admin"]] }
+        defaultValue: "user",
+        validate: { isIn: [["user", "admin"]] }
     }
 },{
     freezeTableName:true

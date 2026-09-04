@@ -1,8 +1,10 @@
 import express from "express";
-import { getUsers, Register, Login, Logout, CheckUser } from "../controllers/Users.js";
+import { getUsers, CheckUser } from "../controllers/Users.js";
+import { refreshToken } from "../controllers/RefreshToken.js";
+import { logout } from "../controllers/Logout.js";
 import { verifyToken } from "../middleware/VerifyToken.js";
 import { verifyApiKey } from "../middleware/VerifyApiKey.js";
-import { refreshToken } from "../controllers/RefreshToken.js";
+import { casLogin, casLogout, casMe, casToken } from "../controllers/CasAuth.js";
 import {
     getInventories,
     getInventoryById,
@@ -31,11 +33,15 @@ import {
 const router = express.Router();
 
 router.get('/users', verifyApiKey, verifyToken, getUsers);
-router.post('/register', verifyApiKey, Register);
-router.post('/login', verifyApiKey, Login);
-router.get('/token', verifyApiKey, refreshToken);
+
+router.get('/token',     verifyApiKey, refreshToken);
+router.delete('/logout', verifyApiKey, verifyToken, logout);
 router.get('/checkuser', verifyApiKey, verifyToken, CheckUser);
-router.delete('/logout', verifyApiKey, verifyToken, Logout);
+
+router.get('/auth/cas/login', casLogin);
+router.get('/auth/cas/token', verifyApiKey, casToken);
+router.get('/auth/cas/logout', casLogout);
+router.get('/auth/cas/me', verifyApiKey, verifyToken, casMe);
 
 router.get('/inventories', verifyApiKey, verifyToken, getInventories);
 router.get('/inventory/:id', verifyApiKey, verifyToken, getInventoryById);

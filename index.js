@@ -2,8 +2,10 @@ import express from "express";
 import dotenv from "dotenv";
 import cookieParser from "cookie-parser";
 import cors from "cors";
+import session from "express-session";
 import db from "./config/Database.js";
 import router from "./routes/index.js";
+import User from "./models/UserModel.js";
 import Inventory from "./models/InventoryModel.js";
 import Schedule from "./models/ScheduleModel.js";
 import Booking from "./models/BookingModel.js";
@@ -19,6 +21,7 @@ BookingItem.belongsTo(Inventory, { foreignKey: "inventory_id", as: "inventory" }
 
 try {
     await db.authenticate();
+    await User.sync({ alter: true });
     await Inventory.sync({ alter: true });
     await Schedule.sync({ alter: true });
     await Booking.sync({ alter: true });
@@ -28,9 +31,10 @@ try {
     console.error(error);
 }
 
+const corsOrigin = process.env.FRONTEND_URL || 'http://localhost:5001';
 const corsOptions = {
     credentials: true,
-    origin: 'http://localhost:3000',
+    origin: corsOrigin,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'x-api-key']
 };
@@ -38,6 +42,15 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.use(cookieParser());
 app.use(express.json());
+app.use(session({
+    secret: process.env.SESSION_SECRET || "default-dev-secret",
+    resave: false,
+    saveUninitialized: true,
+    cookie: {
+        secure: process.env.SECURE_COOKIE === "true",
+        maxAge: 24 * 60 * 60 * 1000
+    }
+}));
 app.use(router);
 
 // Handle error (termasuk error upload file dari multer).

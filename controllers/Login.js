@@ -2,6 +2,8 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import Users from "../models/UserModel.js";
 
+// LOGIN EMAIL/PASSWORD DIGANTI OLEH SSO CAS (lihat controllers/CasAuth.js)
+/*
 export const login = async (req, res) => {
     try {
         const user = await Users.findOne({ where: { email: req.body.email } });
@@ -26,3 +28,4 @@ export const login = async (req, res) => {
         return res.status(500).json({ msg: "Login gagal" });
     }
 };
+*/
