@@ -3,6 +3,8 @@ import express from "express";
 import cookieParser from "cookie-parser";
 import cors from "cors";
 import session from "express-session";
+import pgSession from "connect-pg-simple";
+import pg from "pg";
 import db from "./config/Database.js";
 import router from "./routes/index.js";
 import User from "./models/UserModel.js";
@@ -41,10 +43,27 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.use(cookieParser());
 app.use(express.json());
+const isVercel = Boolean(process.env.VERCEL);
+
+const sessionStore = isVercel
+    ? new (pgSession(session))({
+          pool: new pg.Pool({
+              host: process.env.DB_HOST,
+              port: Number(process.env.DB_PORT) || 5432,
+              database: process.env.DB_NAME,
+              user: process.env.DB_USER,
+              password: process.env.DB_PASSWORD,
+              ssl: { require: true, rejectUnauthorized: false }
+          }),
+          createTableIfMissing: true
+      })
+    : null;
+
 app.use(session({
     secret: process.env.SESSION_SECRET || "default-dev-secret",
     resave: false,
     saveUninitialized: true,
+    store: sessionStore || undefined,
     cookie: {
         secure: process.env.SECURE_COOKIE === "true",
         maxAge: 24 * 60 * 60 * 1000
