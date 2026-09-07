@@ -6,6 +6,12 @@ const db = new Sequelize(process.env.DB_NAME, process.env.DB_USER, process.env.D
     port: Number(process.env.DB_PORT) || 5432,
     dialect: process.env.DB_DIALECT || "postgres",
     logging: false,
+    dialectOptions: process.env.DB_HOST !== "localhost" ? {
+        ssl: {
+            require: true,
+            rejectUnauthorized: false
+        }
+    } : {},
     pool: {
         max: 10,
         min: 0,
