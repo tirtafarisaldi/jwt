@@ -19,16 +19,26 @@ const { Op } = Sequelize;
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-const lettersDir = path.join(__dirname, "..", "public", "letters");
-fs.mkdirSync(lettersDir, { recursive: true });
+const isVercel = Boolean(process.env.VERCEL);
 
-const storage = multer.diskStorage({
-    destination: (req, file, cb) => cb(null, lettersDir),
-    filename: (req, file, cb) => {
-        const ext = path.extname(file.originalname || "").toLowerCase();
-        cb(null, `${Date.now()}-${Math.round(Math.random() * 1e9)}${ext}`);
-    }
-});
+// Di filesystem read-only Vercel, simpan file di memory (buffer).
+// File tetap diunggah ke Google Drive sebelum ditulis ke disk, jadi
+// tidak ada persyaratan akses tulis filesystem.
+let storage;
+let lettersDir = null;
+if (isVercel) {
+    storage = multer.memoryStorage();
+} else {
+    lettersDir = path.join(__dirname, "..", "public", "letters");
+    fs.mkdirSync(lettersDir, { recursive: true });
+    storage = multer.diskStorage({
+        destination: (req, file, cb) => cb(null, lettersDir),
+        filename: (req, file, cb) => {
+            const ext = path.extname(file.originalname || "").toLowerCase();
+            cb(null, `${Date.now()}-${Math.round(Math.random() * 1e9)}${ext}`);
+        }
+    });
+}
 
 const fileFilter = (req, file, cb) => {
     const allowed = ['.pdf'];
@@ -69,6 +79,7 @@ async function storeLetterOnDrive(file) {
     const uniqueName = `${Date.now()}-${baseName}${ext}`;
     const result = await uploadFileToDrive({
         filePath: file.path,
+        buffer: file.buffer,
         folderId: DRIVE_FOLDER_ID(),
         name: uniqueName
     });
@@ -457,7 +468,9 @@ export const createBooking = async (req, res) => {
         const fresh = await Booking.findByPk(booking.id, { include: includeItems });
         return res.status(201).json({ data: fresh });
     } catch (error) {
-        if (req.file) fs.unlinkSync(req.file.path);
+        if (isVercel && req.file?.buffer) {
+            req.file.buffer = null;
+        }
         return res.status(400).json({ msg: "Gagal membuat booking", error: error.errors?.[0]?.message });
     }
 };
@@ -533,7 +546,7 @@ export const updateBooking = async (req, res) => {
         const fresh = await Booking.findByPk(booking.id, { include: includeItems });
         return res.json({ data: fresh });
     } catch (error) {
-        if (req.file) {
+        if (!isVercel && req.file?.path) {
             try { fs.unlinkSync(req.file.path); } catch { /* ignore */ }
         }
         return res.status(400).json({ msg: "Gagal memperbarui booking", error: error.errors?.[0]?.message });

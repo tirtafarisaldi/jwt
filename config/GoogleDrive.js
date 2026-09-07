@@ -59,15 +59,15 @@ const getDrive = async () => {
 
 export const DRIVE_FOLDER_ID = () => process.env.GOOGLE_DRIVE_FOLDER_ID || null;
 
-export const uploadFileToDrive = async ({ filePath, folderId, name }) => {
+export const uploadFileToDrive = async ({ filePath, buffer, folderId, name }) => {
     const driveApi = await getDrive();
     const fileMetadata = {
-        name: name || path.basename(filePath),
+        name: name || (filePath ? path.basename(filePath) : "surat.pdf"),
         parents: folderId ? [folderId] : undefined
     };
     const media = {
         mimeType: "application/pdf",
-        body: fs.createReadStream(filePath)
+        body: buffer ? buffer : fs.createReadStream(filePath)
     };
 
     const res = await driveApi.files.create({
