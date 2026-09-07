@@ -72,11 +72,11 @@ const Booking = db.define("bookings", {
         allowNull: true
     },
     created_by: {
-        type: DataTypes.STRING(36),
+        type: DataTypes.UUID,
         allowNull: true
     },
     updated_by: {
-        type: DataTypes.STRING(36),
+        type: DataTypes.UUID,
         allowNull: true
     }
 }, {

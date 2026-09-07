@@ -44,11 +44,11 @@ const Schedule = db.define("schedules", {
         allowNull: true
     },
     created_by: {
-        type: DataTypes.STRING(36),
+        type: DataTypes.UUID,
         allowNull: true
     },
     updated_by: {
-        type: DataTypes.STRING(36),
+        type: DataTypes.UUID,
         allowNull: true
     }
 }, {

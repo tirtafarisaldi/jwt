@@ -18,7 +18,7 @@ const BookingItem = db.define("booking_items", {
         }
     },
     inventory_id: {
-        type: DataTypes.STRING(36),
+        type: DataTypes.UUID,
         allowNull: false,
         references: {
             model: "inventories",
@@ -26,7 +26,7 @@ const BookingItem = db.define("booking_items", {
         }
     },
     quantity: {
-        type: DataTypes.INTEGER.UNSIGNED,
+        type: DataTypes.INTEGER,
         allowNull: false,
         defaultValue: 1,
         validate: { min: 1 }

@@ -20,7 +20,7 @@ const Inventory = db.define("inventories", {
         validate: { notEmpty: true }
     },
     stock: {
-        type: DataTypes.INTEGER.UNSIGNED,
+        type: DataTypes.INTEGER,
         allowNull: false,
         validate: { min: 0 }
     },
@@ -44,11 +44,11 @@ const Inventory = db.define("inventories", {
         validate: { notEmpty: true }
     },
     created_by: {
-        type: DataTypes.STRING(36),
+        type: DataTypes.UUID,
         allowNull: true
     },
     updated_by: {
-        type: DataTypes.STRING(36),
+        type: DataTypes.UUID,
         allowNull: true
     }
 }, {
