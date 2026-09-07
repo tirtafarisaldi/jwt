@@ -1,5 +1,5 @@
+import "./config/LoadEnv.js";
 import express from "express";
-import dotenv from "dotenv";
 import cookieParser from "cookie-parser";
 import cors from "cors";
 import session from "express-session";
@@ -10,8 +10,7 @@ import Inventory from "./models/InventoryModel.js";
 import Schedule from "./models/ScheduleModel.js";
 import Booking from "./models/BookingModel.js";
 import BookingItem from "./models/BookingItemModel.js";
-const envFile = process.env.NODE_ENV === "production" ? ".env.production" : ".env.development";
-dotenv.config({ path: envFile });
+
 const app = express();
 
 // Relasi bookings <-> booking_items <-> inventories
@@ -21,11 +20,11 @@ BookingItem.belongsTo(Inventory, { foreignKey: "inventory_id", as: "inventory" }
 
 try {
     await db.authenticate();
-    await User.sync({ alter: true });
-    await Inventory.sync({ alter: true });
-    await Schedule.sync({ alter: true });
-    await Booking.sync({ alter: true });
-    await BookingItem.sync({ alter: true });
+    await User.sync();
+    await Inventory.sync();
+    await Schedule.sync();
+    await Booking.sync();
+    await BookingItem.sync();
     console.log('Database Connected...');
 } catch (error) {
     console.error(error);
@@ -64,4 +63,4 @@ app.use((error, req, res, next) => {
     return next(error);
 });
 
-app.listen(3000, ()=> console.log('Server running at port 3000'));
+app.listen(process.env.PORT || 3000, () => console.log(`Server running at port ${process.env.PORT || 3000}`));

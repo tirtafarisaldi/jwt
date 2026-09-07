@@ -1,9 +1,11 @@
-import "dotenv/config";
+import "./LoadEnv.js";
 import {Sequelize} from "sequelize";
 
-const db = new Sequelize(`${process.env.DB_NAME}`,`${process.env.DB_USER}`,`${process.env.DB_PASSWORD}`,{
-    host: "localhost",
-    dialect: "mysql",
+const db = new Sequelize(process.env.DB_NAME, process.env.DB_USER, process.env.DB_PASSWORD, {
+    host: process.env.DB_HOST || "localhost",
+    port: Number(process.env.DB_PORT) || 5432,
+    dialect: process.env.DB_DIALECT || "postgres",
+    logging: false,
     pool: {
         max: 10,
         min: 0,
@@ -11,7 +13,8 @@ const db = new Sequelize(`${process.env.DB_NAME}`,`${process.env.DB_USER}`,`${pr
         idle: 10000
     },
     define: {
-        timestamps: true
+        timestamps: true,
+        freezeTableName: true
     }
 });
 
