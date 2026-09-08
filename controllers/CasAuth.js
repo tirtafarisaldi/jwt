@@ -16,7 +16,11 @@ const getAttr = (info, key) => {
 };
 
 const setRefreshCookie = (res, refreshToken) => {
-    const isSecure = process.env.SECURE_COOKIE === "true";
+    // Di Vercel (https) frontend dan backend adalah site yang berbeda, jadi cookie
+    // HARUS SameSite=None + Secure agar dikirim pada request cross-site ke /token.
+    // Production selalu pakai secure+none, tidak bergantung pada SECURE_COOKIE
+    // yang harus diset manual di dashboard Vercel.
+    const isSecure = process.env.SECURE_COOKIE === "true" || process.env.NODE_ENV === "production";
     res.cookie("refreshToken", refreshToken, {
         httpOnly: true,
         secure: isSecure,
@@ -77,7 +81,15 @@ export const casLogin = (req, res, next) => {
 export const casToken = async (req, res) => {
     try {
         const refreshToken = req.cookies.refreshToken;
-        if (!refreshToken) return res.sendStatus(401);
+        if (!refreshToken) {
+            console.warn('[CAS] endpoint token dipanggil tanpa cookie refreshToken.', {
+                host: req.headers.host,
+                origin: req.headers.origin,
+                protocol: req.protocol,
+                hasCookieHeader: Boolean(req.headers.cookie)
+            });
+            return res.sendStatus(401);
+        }
 
         const user = await Users.findOne({ where: { refresh_token: refreshToken } });
         if (!user) return res.sendStatus(403);

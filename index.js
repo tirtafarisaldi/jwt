@@ -15,6 +15,9 @@ import BookingItem from "./models/BookingItemModel.js";
 
 const app = express();
 
+// Vercel memakai reverse proxy, supaya req.secure/protocol benar di belakang proxy.
+app.set("trust proxy", 1);
+
 // Relasi bookings <-> booking_items <-> inventories
 Booking.hasMany(BookingItem, { foreignKey: "booking_id", as: "items", onDelete: "CASCADE" });
 BookingItem.belongsTo(Booking, { foreignKey: "booking_id", as: "booking" });
