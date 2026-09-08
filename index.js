@@ -13,6 +13,7 @@ import Schedule from "./models/ScheduleModel.js";
 import Booking from "./models/BookingModel.js";
 import BookingItem from "./models/BookingItemModel.js";
 import AuthCode from "./models/AuthCodeModel.js";
+import DriveCredential from "./models/DriveCredentialModel.js";
 
 const app = express();
 
@@ -30,6 +31,7 @@ try {
     await Inventory.sync();
     await Schedule.sync();
     await AuthCode.sync();
+    await DriveCredential.sync();
     await Booking.sync();
     await BookingItem.sync();
     console.log('Database Connected...');

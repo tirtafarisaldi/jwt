@@ -5,6 +5,7 @@ import { logout } from "../controllers/Logout.js";
 import { verifyToken } from "../middleware/VerifyToken.js";
 import { verifyApiKey } from "../middleware/VerifyApiKey.js";
 import { casLogin, casLogout, casMe, casToken } from "../controllers/CasAuth.js";
+import { driveSetup, driveSetupCallback } from "../controllers/DriveAuth.js";
 import {
     getInventories,
     getInventoryById,
@@ -42,6 +43,10 @@ router.get('/auth/cas/login', casLogin);
 router.get('/auth/cas/token', verifyApiKey, casToken);
 router.get('/auth/cas/logout', casLogout);
 router.get('/auth/cas/me', verifyApiKey, verifyToken, casMe);
+
+// Re-auth Google Drive (setelah refresh token dicabut/hilang).
+router.get('/drive/setup', driveSetup);
+router.get('/drive/setup/callback', driveSetupCallback);
 
 router.get('/inventories', verifyApiKey, verifyToken, getInventories);
 router.get('/inventory/:id', verifyApiKey, verifyToken, getInventoryById);

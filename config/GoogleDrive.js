@@ -4,6 +4,7 @@ import fs from "fs";
 import path from "path";
 import { Readable } from "stream";
 import { fileURLToPath } from "url";
+import DriveCredential from "../models/DriveCredentialModel.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const envFile = process.env.NODE_ENV === "production" ? ".env.production" : ".env.development";
@@ -28,27 +29,48 @@ const getOAuth2Client = (redirectUri) => {
         return new google.auth.OAuth2(clientId, clientSecret, redirectUri);
     }
 
-    // Untuk pemakaian normal, gunakan instance cached dengan refresh token.
+    // Untuk pemakaian normal, instance di-cache; refresh token di-set saat authorize().
     if (!oauth2Client) {
-        const refreshToken = process.env.GOOGLE_DRIVE_REFRESH_TOKEN;
         oauth2Client = new google.auth.OAuth2(clientId, clientSecret);
-        if (refreshToken) {
-            oauth2Client.setCredentials({ refresh_token: refreshToken });
-        }
     }
     return oauth2Client;
+};
+
+// Refresh token tersimpan di DB (mudah diperbarui lewat /drive/setup, tanpa
+// menyentuh env Vercel). Env GOOGLE_DRIVE_REFRESH_TOKEN dipakai sebagai cadangan.
+const readRefreshToken = async () => {
+    try {
+        const row = await DriveCredential.findOne();
+        if (row?.refresh_token) return row.refresh_token;
+    } catch {
+        // DB belum siap — fallback ke env (mis. dev lokal / sebelum drive_credentials ter-sync).
+    }
+    return process.env.GOOGLE_DRIVE_REFRESH_TOKEN || null;
+};
+
+export const saveDriveRefreshToken = async (refreshToken) => {
+    if (!refreshToken) return;
+    let row = await DriveCredential.findOne();
+    if (row) {
+        row.refresh_token = refreshToken;
+        await row.save();
+    } else {
+        await DriveCredential.create({ refresh_token: refreshToken });
+    }
 };
 
 // Paksa refresh token agar valid (memuat access token baru bila perlu).
 const authorize = async () => {
     const client = getOAuth2Client();
-    if (!client.credentials || !client.credentials.refresh_token) {
+    const refreshToken = await readRefreshToken();
+    if (!refreshToken) {
         const error = new Error(
-            "Belum ada refresh token Google Drive. Jalankan 'npm run drive:auth' sekali untuk login."
+            "Belum ada refresh token Google Drive. Buka /drive/setup untuk login."
         );
         error.statusCode = 500;
         throw error;
     }
+    client.setCredentials({ refresh_token: refreshToken });
     await client.getAccessToken();
     return client;
 };
