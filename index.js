@@ -12,6 +12,7 @@ import Inventory from "./models/InventoryModel.js";
 import Schedule from "./models/ScheduleModel.js";
 import Booking from "./models/BookingModel.js";
 import BookingItem from "./models/BookingItemModel.js";
+import AuthCode from "./models/AuthCodeModel.js";
 
 const app = express();
 
@@ -28,6 +29,7 @@ try {
     await User.sync();
     await Inventory.sync();
     await Schedule.sync();
+    await AuthCode.sync();
     await Booking.sync();
     await BookingItem.sync();
     console.log('Database Connected...');
@@ -40,7 +42,7 @@ const corsOptions = {
     credentials: true,
     origin: corsOrigin,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'x-api-key']
+    allowedHeaders: ['Content-Type', 'Authorization', 'x-api-key', 'x-auth-code', 'x-refresh-token']
 };
 
 app.use(cors(corsOptions));

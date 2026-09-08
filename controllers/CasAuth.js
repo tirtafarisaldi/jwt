@@ -1,6 +1,7 @@
 import jwt from "jsonwebtoken";
 import Users from "../models/UserModel.js";
 import cas from "../config/CasAuth.js";
+import { createAuthCode, redeemAuthCode } from "../utils/authCode.js";
 
 const FRONTEND_URL = process.env.FRONTEND_URL
 
@@ -64,7 +65,13 @@ const buildAuthRedirect = async (req, res) => {
         delete req.session[cas.session_name];
         delete req.session[cas.session_info];
 
-        return res.redirect(`${FRONTEND_URL}`);
+        // Kanal utama: kode sekali pakai (bukan refresh token mentah) lewat URL.
+        // Cookie cross-site SameSite=None yang dibuat dalam redirect chain CAS
+        // sering dihapus browser (Chrome 3PCD / Safari ITP), jadi cookie saja
+        // tidak bisa diandalkan. Frontend membaca ?code=... dari URL-nya lalu
+        // menukarnya ke /token (header x-auth-code) dalam 5 menit.
+        const code = await createAuthCode(user.id, refreshToken);
+        return res.redirect(`${FRONTEND_URL}?code=${code}`);
     } catch (error) {
         console.error('CAS callback error:', error);
         return res.redirect(`${FRONTEND_URL}?error=server_error`);
@@ -80,31 +87,58 @@ export const casLogin = (req, res, next) => {
 
 export const casToken = async (req, res) => {
     try {
-        const refreshToken = req.cookies.refreshToken;
-        if (!refreshToken) {
-            console.warn('[CAS] endpoint token dipanggil tanpa cookie refreshToken.', {
-                host: req.headers.host,
-                origin: req.headers.origin,
-                protocol: req.protocol,
-                hasCookieHeader: Boolean(req.headers.cookie)
-            });
-            return res.sendStatus(401);
+        const authHeaderToken = req.headers.authorization?.startsWith('Bearer ')
+            ? req.headers.authorization.slice(7)
+            : undefined;
+        const refreshToken = req.cookies.refreshToken
+            || authHeaderToken
+            || req.headers['x-refresh-token'];
+
+        let user;
+        let token;
+
+        if (refreshToken) {
+            user = await Users.findOne({ where: { refresh_token: refreshToken } });
+            if (!user) return res.sendStatus(403);
+            token = refreshToken;
+        } else {
+            const code = req.headers['x-auth-code'] || req.query.code;
+            const redeemed = await redeemAuthCode(code);
+            if (!redeemed) {
+                console.warn('[CAS] endpoint token tanpa refresh token & tanpa kode valid.', {
+                    host: req.headers.host,
+                    origin: req.headers.origin,
+                    protocol: req.protocol,
+                    hasCookieHeader: Boolean(req.headers.cookie),
+                    hasAuthHeader: Boolean(req.headers.authorization),
+                    hasCode: Boolean(code)
+                });
+                return res.sendStatus(401);
+            }
+            user = await Users.findByPk(redeemed.userId);
+            if (!user) return res.sendStatus(403);
+            token = redeemed.refreshToken;
         }
 
-        const user = await Users.findOne({ where: { refresh_token: refreshToken } });
-        if (!user) return res.sendStatus(403);
-
-        jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET, (err, decoded) => {
+        jwt.verify(token, process.env.REFRESH_TOKEN_SECRET, (err, decoded) => {
             if (err) return res.sendStatus(403);
             const accessToken = jwt.sign(
                 { userId: user.id, name: user.name, email: user.email },
                 process.env.ACCESS_TOKEN_SECRET,
                 { expiresIn: "1d" }
             );
-            return res.json({
+            const body = {
                 accessToken,
                 user: { id: user.id, name: user.name, email: user.email, role: user.role }
-            });
+            };
+            // Jika token diperoleh dari kode sekali pakai, kembalikan refresh
+            // token ke frontend (disimpan mis. di localStorage) dan tetapkan
+            // sebagai cookie agar refresh berikutnya tetap bisa berjalan.
+            if (!refreshToken) {
+                body.refreshToken = token;
+                setRefreshCookie(res, token);
+            }
+            return res.json(body);
         });
     } catch (error) {
         console.error('CAS token error:', error);
