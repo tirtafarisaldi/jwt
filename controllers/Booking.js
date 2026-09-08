@@ -471,7 +471,11 @@ export const createBooking = async (req, res) => {
         if (isVercel && req.file?.buffer) {
             req.file.buffer = null;
         }
-        return res.status(400).json({ msg: "Gagal membuat booking", error: error.errors?.[0]?.message });
+        console.error('createBooking error:', error);
+        return res.status(400).json({
+            msg: "Gagal membuat booking",
+            error: error.errors?.[0]?.message || error.message
+        });
     }
 };
 
@@ -549,7 +553,11 @@ export const updateBooking = async (req, res) => {
         if (!isVercel && req.file?.path) {
             try { fs.unlinkSync(req.file.path); } catch { /* ignore */ }
         }
-        return res.status(400).json({ msg: "Gagal memperbarui booking", error: error.errors?.[0]?.message });
+        console.error('updateBooking error:', error);
+        return res.status(400).json({
+            msg: "Gagal memperbarui booking",
+            error: error.errors?.[0]?.message || error.message
+        });
     }
 };
 
