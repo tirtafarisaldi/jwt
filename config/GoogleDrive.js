@@ -2,6 +2,7 @@ import { google } from "googleapis";
 import dotenv from "dotenv";
 import fs from "fs";
 import path from "path";
+import { Readable } from "stream";
 import { fileURLToPath } from "url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -67,7 +68,9 @@ export const uploadFileToDrive = async ({ filePath, buffer, folderId, name }) =>
     };
     const media = {
         mimeType: "application/pdf",
-        body: buffer ? buffer : fs.createReadStream(filePath)
+        // googleapis mengharuskan media.body berupa stream. Multer memoryStorage
+        // (Vercel) menyediakan Buffer, jadi bungkus ke Readable dulu.
+        body: buffer ? Readable.from(buffer) : fs.createReadStream(filePath)
     };
 
     const res = await driveApi.files.create({
