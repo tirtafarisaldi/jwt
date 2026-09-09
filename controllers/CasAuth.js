@@ -2,6 +2,7 @@ import jwt from "jsonwebtoken";
 import Users from "../models/UserModel.js";
 import cas from "../config/CasAuth.js";
 import { createAuthCode, redeemAuthCode } from "../utils/authCode.js";
+import { deriveRoleFromEmail, resolveRole } from "../utils/role.js";
 
 const FRONTEND_URL = process.env.FRONTEND_URL
 
@@ -35,7 +36,7 @@ const buildAuthRedirect = async (req, res) => {
     try {
         const username = req.session[cas.session_name];
         const info = req.session[cas.session_info];
-        console.log('[CAS] username :', username);
+        console.log('[CAS] username :', req.session);
         console.log('[CAS] info     :', JSON.stringify(info));
         if (!username) {
             return res.redirect(`${FRONTEND_URL}?error=authentication_failed`);
@@ -49,14 +50,33 @@ const buildAuthRedirect = async (req, res) => {
 
         let user = await Users.findOne({ where: { email } });
         if (user) {
+            const updates = {};
             if (user.name !== name) {
-                await user.update({ name });
+                updates.name = name;
+            }
+            const derivedRole = deriveRoleFromEmail(email);
+            // Perbarui role non-admin otomatis dari domain email (mis. saat
+            // pengguna pindah dari status mahasiswa menjadi dosen/staff).
+            if (derivedRole && user.role !== 'admin' && user.role !== derivedRole) {
+                updates.role = derivedRole;
+            }
+            if (Object.keys(updates).length > 0) {
+                await user.update(updates);
             }
         } else {
-            user = await Users.create({ name, email });
+            user = await Users.create({
+                name,
+                email,
+                role: deriveRoleFromEmail(email) || 'mahasiswa'
+            });
         }
 
-        const payload = { userId: user.id, name: user.name, email: user.email };
+        const payload = {
+            userId: user.id,
+            name: user.name,
+            email: user.email,
+            role: user.role
+        };
         const refreshToken = jwt.sign(payload, process.env.REFRESH_TOKEN_SECRET, { expiresIn: "1d" });
 
         await user.update({ refresh_token: refreshToken });
@@ -123,13 +143,18 @@ export const casToken = async (req, res) => {
         jwt.verify(token, process.env.REFRESH_TOKEN_SECRET, (err, decoded) => {
             if (err) return res.sendStatus(403);
             const accessToken = jwt.sign(
-                { userId: user.id, name: user.name, email: user.email },
+                { userId: user.id, name: user.name, email: user.email, role: user.role },
                 process.env.ACCESS_TOKEN_SECRET,
                 { expiresIn: "1d" }
             );
             const body = {
                 accessToken,
-                user: { id: user.id, name: user.name, email: user.email, role: user.role }
+                user: {
+                    id: user.id,
+                    name: user.name,
+                    email: user.email,
+                    role: resolveRole(user.role, user.email)
+                }
             };
             // Jika token diperoleh dari kode sekali pakai, kembalikan refresh
             // token ke frontend (disimpan mis. di localStorage) dan tetapkan

@@ -8,6 +8,7 @@ import BookingItem from "../models/BookingItemModel.js";
 import Inventory from "../models/InventoryModel.js";
 import Schedule from "../models/ScheduleModel.js";
 import Users from "../models/UserModel.js";
+import { resolveRole } from "../utils/role.js";
 import {
     uploadFileToDrive,
     getDriveFileStream,
@@ -103,8 +104,21 @@ const deleteStoredLetter = async (value) => {
 
 const VALID_STATUSES = ['pending', 'reviewing', 'approved', 'rejected', 'completed'];
 
+// Mendapatkan role pengaju. Utamakan dari klaim token; role legacy yang belum
+// dikenal (mis. "user") dinormalisasi ulang dari email. Bila token lama belum
+// memuat role, muat dari database agar validasi dosen_pj tetap berlaku.
+const resolveCurrentRole = async (req) => {
+    const tokenRole = req.role;
+    if (tokenRole && ['admin', 'staff', 'dosen', 'mahasiswa'].includes(tokenRole)) {
+        return tokenRole;
+    }
+    const user = req.userId ? await Users.findByPk(req.userId).catch(() => null) : null;
+    return resolveRole(tokenRole || user?.role || null, req.email || user?.email || null);
+};
+
 const bookingFields = [
     "borrower",
+    "dosen_pj",
     "type",
     "letter_file",
     "title",
@@ -201,11 +215,23 @@ const VALID_REPEATS = ['none', 'daily', 'weekly', 'monthly'];
 
 const isFilled = (value) => value !== undefined && value !== null && String(value).trim() !== '';
 
-const validatePayload = async (body, items) => {
+// Keterangan (note) wajib diisi untuk semua pengajuan peminjaman.
+// Roles: admin, staff, dosen, mahasiswa.
+const validatePayload = async (body, items, role) => {
     const errors = [];
 
     if (!isFilled(body.borrower)) {
         errors.push('borrower wajib diisi');
+    }
+
+    if (!isFilled(body.note)) {
+        errors.push('Keterangan wajib diisi');
+    }
+
+    // Dosen Penanggung Jawab wajib diisi ketika pengaju adalah mahasiswa,
+    // dan opsional untuk admin, staff, maupun dosen.
+    if (role === 'mahasiswa' && !isFilled(body.dosen_pj)) {
+        errors.push('Dosen Penanggung Jawab wajib diisi untuk pengajuan mahasiswa');
     }
 
     if (body.type !== undefined && body.type !== 'equipment' && body.type !== 'room') {
@@ -434,7 +460,12 @@ export const createBooking = async (req, res) => {
         const payload = pickBookingFields(req.body);
         const items = parseItems(req.body.items);
 
-        const errors = await validatePayload({ ...payload, type: payload.type ?? 'equipment' }, items);
+        const requesterRole = await resolveCurrentRole(req);
+        const errors = await validatePayload(
+            { ...payload, type: payload.type ?? 'equipment' },
+            items,
+            requesterRole
+        );
         if (errors.length > 0) {
             return res.status(400).json({ msg: errors[0] });
         }
@@ -499,7 +530,8 @@ export const updateBooking = async (req, res) => {
                       inventory_id: it.inventory_id,
                       quantity: it.quantity
                   }));
-        const errors = await validatePayload(merged, mergedItems);
+        const requesterRole = await resolveCurrentRole(req);
+        const errors = await validatePayload(merged, mergedItems, requesterRole);
         if (errors.length > 0) {
             return res.status(400).json({ msg: errors[0] });
         }

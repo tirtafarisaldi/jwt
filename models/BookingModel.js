@@ -14,6 +14,10 @@ const Booking = db.define("bookings", {
         allowNull: false,
         validate: { notEmpty: true }
     },
+    dosen_pj: {
+        type: DataTypes.STRING,
+        allowNull: true
+    },
     type: {
         type: DataTypes.ENUM("equipment", "room"),
         allowNull: false,
@@ -69,7 +73,8 @@ const Booking = db.define("bookings", {
     },
     note: {
         type: DataTypes.TEXT,
-        allowNull: true
+        allowNull: false,
+        defaultValue: ""
     },
     created_by: {
         type: DataTypes.UUID,
